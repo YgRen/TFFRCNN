@@ -67,14 +67,24 @@ if __name__ == '__main__':
     print('Using config:')
     pprint.pprint(cfg)
 
-    while not os.path.exists(args.model) and args.wait:
-        print('Waiting for {} to exist...'.format(args.model))
-        time.sleep(1000)
 
     weights_filename = os.path.splitext(os.path.basename(args.model))[0]
 
     imdb = get_imdb(args.imdb_name)
     imdb.competition_mode(args.comp_mode)
+    
+    # Find the checkpoint directory, or wait until it exists.
+    if os.path.exists(args.model):
+        model_dir = args.model
+    else:
+        try:
+            checkpoint_dir = os.path.dirname(args.model)
+            ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
+            model_dir = ckpt.model_checkpoint_path
+        except:
+            print('Waiting for checkpoint in directory {} to exist...'.format(checkpoint_dir))
+            time.sleep(1000)
+    
 
     device_name = '/gpu:{:d}'.format(args.gpu_id)
     print device_name
@@ -87,7 +97,7 @@ if __name__ == '__main__':
     # start a session
     saver = tf.train.Saver()
     sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-    saver.restore(sess, args.model)
-    print ('Loading model weights from {:s}').format(args.model)
+    saver.restore(sess, model_dir)
+    print ('Loading model weights from {:s}').format(model_dir)
 
     test_net(sess, network, imdb, weights_filename)
